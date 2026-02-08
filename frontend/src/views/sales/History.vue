@@ -27,32 +27,72 @@
             <tr v-else-if="transactions.length === 0" class="text-center">
               <td colspan="6" class="px-6 py-4 text-gray-400">Belum ada transaksi</td>
             </tr>
-            <tr v-else v-for="t in transactions" :key="t.id" class="border-b last:border-0 hover:bg-gray-50 transition">
-              <td class="px-6 py-4 text-gray-600">{{ new Date(t.createdAt).toLocaleDateString('id-ID') }}</td>
-              <td class="px-6 py-4 font-medium text-gray-900">{{ t.invoice_number }}</td>
+            <tr v-else v-for="t in paginatedTransactions" :key="t.id" class="border-b last:border-0 hover:bg-gray-50 transition">
+              <td class="px-6 py-4 text-gray-600 font-medium">{{ new Date(t.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) }}</td>
+              <td class="px-6 py-4 font-bold text-gray-900 text-xs">{{ t.invoice_number }}</td>
               <td class="px-6 py-4 text-gray-600">{{ t.customer_name || '-' }}</td>
-              <td class="px-6 py-4 font-medium text-gray-900">Rp {{ parseFloat(t.total_amount).toLocaleString('id-ID') }}</td>
-              <td class="px-6 py-4 capitalize text-gray-600">{{ t.payment_type }}</td>
+              <td class="px-6 py-4 font-bold text-blue-700">Rp {{ parseFloat(t.total_amount).toLocaleString('id-ID') }}</td>
+              <td class="px-6 py-4 capitalize text-gray-500 text-xs">{{ t.payment_type }}</td>
               <td class="px-6 py-4">
                 <span :class="getStatusClass(t.status)">
                   {{ translateStatus(t.status) }}
                 </span>
                 <p v-if="t.status === 'rejected'" class="text-xs text-red-500 mt-1 mb-1">{{ t.rejection_reason }}</p>
                 <!-- Edit Button if Rejected -->
-                <router-link v-if="t.status === 'rejected'" :to="`/sales/edit/${t.id}`" class="inline-block mt-2 px-3 py-1 bg-yellow-100 text-yellow-700 text-xs rounded hover:bg-yellow-200 transition">
+                <router-link v-if="t.status === 'rejected'" :to="`/sales/edit/${t.id}`" class="inline-block mt-2 px-3 py-1 bg-yellow-100 text-yellow-700 text-[10px] font-bold rounded hover:bg-yellow-200 transition">
                    ✏️ Edit / Ajukan Ulang
                 </router-link>
 
-                <p v-if="(t.status === 'approved' || t.status === 'completed') && t.approved_at" class="text-xs text-green-600 mt-1">
-                  ACC: {{ new Date(t.approved_at).toLocaleString('id-ID') }}
-                </p>
-                <button v-if="t.proof_of_payment" @click="openProofModal(t.proof_of_payment)" class="mt-2 text-xs text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded hover:bg-blue-100 block w-fit">
-                  📄 Lihat Bukti
-                </button>
+                <div class="flex flex-wrap gap-2 mt-2">
+                  <button v-if="t.proof_of_payment" @click="openProofModal(t.proof_of_payment)" class="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded hover:bg-blue-100 flex items-center gap-1">
+                    📄 Bukti
+                  </button>
+                  <button @click="printInvoice(t, false)" class="text-[10px] text-gray-600 font-bold bg-gray-100 px-2 py-1 rounded hover:bg-gray-200 flex items-center gap-1">
+                    💾 PDF
+                  </button>
+                  <button @click="printInvoice(t, true)" class="text-[10px] text-white font-bold bg-blue-600 px-2 py-1 rounded hover:bg-blue-700 flex items-center gap-1 shadow-sm">
+                    🖨️ Cetak
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
         </table>
+      </div>
+      
+      <!-- Pagination Controls -->
+      <div v-if="totalPages > 1" class="px-6 py-4 bg-gray-50 border-t flex items-center justify-between">
+        <div class="text-xs text-gray-500">
+          Menampilkan <span class="font-bold">{{ (currentPage - 1) * itemsPerPage + 1 }}</span> - 
+          <span class="font-bold">{{ Math.min(currentPage * itemsPerPage, transactions.length) }}</span> dari 
+          <span class="font-bold">{{ transactions.length }}</span> data
+        </div>
+        <div class="flex gap-2">
+          <button 
+            @click="currentPage--" 
+            :disabled="currentPage === 1"
+            class="px-3 py-1.5 rounded-lg border bg-white text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+          >
+            &laquo; Prev
+          </button>
+          <div class="flex gap-1">
+             <button 
+                v-for="p in totalPages" :key="p"
+                @click="currentPage = p"
+                :class="currentPage === p ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                class="w-8 h-8 rounded-lg border text-xs font-bold transition flex items-center justify-center border-gray-200"
+             >
+                {{ p }}
+             </button>
+          </div>
+          <button 
+            @click="currentPage++" 
+            :disabled="currentPage === totalPages"
+            class="px-3 py-1.5 rounded-lg border bg-white text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+          >
+            Next &raquo;
+          </button>
+        </div>
       </div>
     </div>
 
@@ -80,15 +120,30 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import axios from 'axios'
 import { useAuthStore } from '../../stores/auth'
+import { generateInvoicePDF } from '../../utils/pdfGenerator'
 
 const transactions = ref([])
 const loading = ref(true)
+const currentPage = ref(1)
+const itemsPerPage = ref(10)
 const showProofModal = ref(false)
 const selectedProofUrl = ref('')
 const authStore = useAuthStore()
+
+const printInvoice = (transaction, shouldPrint = false) => {
+  generateInvoicePDF(transaction, shouldPrint)
+}
+
+const totalPages = computed(() => Math.ceil(transactions.value.length / itemsPerPage.value))
+
+const paginatedTransactions = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  const end = start + itemsPerPage.value
+  return transactions.value.slice(start, end)
+})
 
 const openProofModal = (url) => {
   selectedProofUrl.value = url

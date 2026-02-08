@@ -1,12 +1,30 @@
 <template>
   <div class="space-y-6">
-    <h2 class="text-2xl font-bold text-gray-800">Dashboard General Manager</h2>
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <h2 class="text-2xl font-bold text-gray-800">Dashboard General Manager</h2>
+      <div class="flex bg-white p-1 rounded-xl shadow-sm border border-gray-100">
+        <button 
+          @click="filterIncome = 'today'" 
+          :class="filterIncome === 'today' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'"
+          class="px-4 py-2 rounded-lg text-sm font-bold transition-all"
+        >
+          Hari Ini
+        </button>
+        <button 
+          @click="filterIncome = 'month'" 
+          :class="filterIncome === 'month' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'"
+          class="px-4 py-2 rounded-lg text-sm font-bold transition-all"
+        >
+          Bulan Ini
+        </button>
+      </div>
+    </div>
     
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
       <div class="bg-blue-600 rounded-xl shadow-lg p-6 text-white flex items-center justify-between">
         <div>
-          <p class="text-blue-100 text-sm font-medium uppercase tracking-wider">Penjualan (Hari Ini)</p>
-          <h3 class="text-3xl font-bold mt-1">{{ dailySalesCount }}</h3>
+          <p class="text-blue-100 text-sm font-medium uppercase tracking-wider">Penjualan ({{ filterIncome === 'today' ? 'Hari Ini' : 'Bulan Ini' }})</p>
+          <h3 class="text-3xl font-bold mt-1">{{ filteredSalesCount }}</h3>
         </div>
         <div class="p-3 bg-blue-500 rounded-lg">
           <span class="text-2xl">📈</span>
@@ -15,8 +33,8 @@
       
       <div class="bg-indigo-600 rounded-xl shadow-lg p-6 text-white flex items-center justify-between">
         <div>
-          <p class="text-indigo-100 text-sm font-medium uppercase tracking-wider">Pendapatan (Hari Ini)</p>
-          <h3 class="text-3xl font-bold mt-1">Rp {{ dailyRevenue.toLocaleString('id-ID') }}</h3>
+          <p class="text-indigo-100 text-sm font-medium uppercase tracking-wider">Pendapatan ({{ filterIncome === 'today' ? 'Hari Ini' : 'Bulan Ini' }})</p>
+          <h3 class="text-3xl font-bold mt-1">Rp {{ filteredRevenue.toLocaleString('id-ID') }}</h3>
         </div>
         <div class="p-3 bg-indigo-500 rounded-lg">
           <span class="text-2xl">💰</span>
@@ -55,7 +73,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="t in transactions.slice(0, 10)" :key="t.id" class="border-b last:border-0 hover:bg-gray-50 transition">
+            <tr v-for="t in paginatedTransactions" :key="t.id" class="border-b last:border-0 hover:bg-gray-50 transition">
               <td class="px-6 py-4 font-bold text-gray-900">{{ t.invoice_number }}</td>
               <td class="px-6 py-4 text-gray-600 text-xs">{{ new Date(t.createdAt).toLocaleDateString('id-ID', {day:'numeric', month:'short'}) }}</td>
               <td class="px-6 py-4 text-gray-600 truncate max-w-[150px]">{{ t.customer_name || '-' }}</td>
@@ -67,13 +85,22 @@
                 </span>
               </td>
               <td class="px-6 py-4 text-center">
-                <button @click="showDetail(t)" class="text-blue-600 hover:text-blue-800 font-bold text-xs p-1 px-3 border border-blue-200 rounded-lg hover:bg-blue-50 transition">
-                  Lihat
+                <button @click="showDetail(t)" class="p-1 px-3 border border-blue-200 rounded-lg hover:bg-blue-50 transition text-blue-600 font-bold text-xs">
+                  Detail
                 </button>
               </td>
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Pagination for Table -->
+      <div v-if="totalPagesTable > 1" class="px-6 py-3 bg-gray-50 border-t flex items-center justify-between">
+        <span class="text-[10px] text-gray-400 font-bold uppercase">Halaman {{ currentTablePage }} / {{ totalPagesTable }}</span>
+        <div class="flex gap-1">
+          <button @click="currentTablePage--" :disabled="currentTablePage === 1" class="px-2 py-1 border rounded bg-white text-xs disabled:opacity-30">&laquo;</button>
+          <button @click="currentTablePage++" :disabled="currentTablePage === totalPagesTable" class="px-2 py-1 border rounded bg-white text-xs disabled:opacity-30">&raquo;</button>
+        </div>
       </div>
     </div>
 
@@ -127,7 +154,12 @@
             <p class="text-[10px] text-gray-400 font-bold uppercase">Total Tagihan</p>
             <p class="text-2xl font-black text-blue-600 leading-none">Rp {{ parseFloat(selectedTransaction.total_amount).toLocaleString('id-ID') }}</p>
           </div>
-          <button @click="selectedTransaction = null" class="px-6 py-2.5 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition shadow-lg">OK, Tutup</button>
+          <div class="flex gap-2">
+            <button @click="printInvoice(selectedTransaction)" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-sm transition flex items-center gap-2">
+              <span>🖨️</span> Cetak
+            </button>
+            <button @click="selectedTransaction = null" class="px-6 py-2.5 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition shadow-lg">Tutup</button>
+          </div>
         </div>
       </div>
     </div>
@@ -152,6 +184,7 @@
 import { ref, onMounted, computed } from 'vue'
 import axios from 'axios'
 import { useAuthStore } from '../../stores/auth'
+import { generateInvoicePDF } from '../../utils/pdfGenerator'
 
 const transactions = ref([])
 const selectedTransaction = ref(null)
@@ -159,10 +192,21 @@ const showProofModal = ref(false)
 const selectedProofUrl = ref('')
 const authStore = useAuthStore()
 
-const openProofModal = (url) => {
-  selectedProofUrl.value = url
-  showProofModal.value = true
+const printInvoice = (transaction, shouldPrint = true) => {
+  generateInvoicePDF(transaction, shouldPrint)
 }
+const filterIncome = ref('today')
+
+// Table Pagination state
+const currentTablePage = ref(1)
+const itemsPerPageTable = ref(10)
+
+const totalPagesTable = computed(() => Math.ceil(transactions.value.length / itemsPerPageTable.value))
+
+const paginatedTransactions = computed(() => {
+  const start = (currentTablePage.value - 1) * itemsPerPageTable.value
+  return transactions.value.slice(start, start + itemsPerPageTable.value)
+})
 
 const fetchTransactions = async () => {
   try {
@@ -179,15 +223,47 @@ const showDetail = (t) => {
   selectedTransaction.value = t
 }
 
-const dailySalesCount = computed(() => {
-  const today = new Date().toISOString().split('T')[0]
-  return transactions.value.filter(t => t.createdAt && t.createdAt.startsWith(today)).length
+const openProofModal = (url) => {
+  selectedProofUrl.value = url
+  showProofModal.value = true
+}
+// Existing logic...
+const filteredSalesCount = computed(() => {
+  const now = new Date()
+  const today = now.toISOString().split('T')[0]
+  const currentMonth = now.getMonth()
+  const currentYear = now.getFullYear()
+
+  return transactions.value.filter(t => {
+    if (!t.createdAt) return false
+    const date = new Date(t.createdAt)
+    if (filterIncome.value === 'today') {
+      return t.createdAt.startsWith(today)
+    } else {
+      return date.getMonth() === currentMonth && date.getFullYear() === currentYear
+    }
+  }).length
 })
 
-const dailyRevenue = computed(() => {
-  const today = new Date().toISOString().split('T')[0]
+const filteredRevenue = computed(() => {
+  const now = new Date()
+  const today = now.toISOString().split('T')[0]
+  const currentMonth = now.getMonth()
+  const currentYear = now.getFullYear()
+
   return transactions.value
-    .filter(t => t.createdAt && t.createdAt.startsWith(today) && (t.status === 'completed' || t.status === 'approved')) 
+    .filter(t => {
+      if (!t.createdAt) return false
+      const date = new Date(t.createdAt)
+      const isApproved = t.status === 'completed' || t.status === 'approved'
+      if (!isApproved) return false
+
+      if (filterIncome.value === 'today') {
+        return t.createdAt.startsWith(today)
+      } else {
+        return date.getMonth() === currentMonth && date.getFullYear() === currentYear
+      }
+    })
     .reduce((sum, t) => sum + parseFloat(t.total_amount), 0)
 })
 

@@ -58,7 +58,7 @@
             <tr v-else-if="filteredTransactions.length === 0" class="text-center">
               <td colspan="8" class="px-6 py-4 text-gray-400">Belum ada transaksi</td>
             </tr>
-            <tr v-else v-for="t in filteredTransactions" :key="t.id" class="border-b last:border-0 hover:bg-gray-50 transition text-xs sm:text-sm">
+            <tr v-else v-for="t in paginatedTransactions" :key="t.id" class="border-b last:border-0 hover:bg-gray-50 transition text-xs sm:text-sm">
               <td class="px-6 py-4 text-gray-600 font-bold">{{ new Date(t.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) }}</td>
               <td class="px-6 py-4 font-bold text-gray-900">{{ t.invoice_number }}</td>
               <td class="px-6 py-4 text-gray-600">{{ t.sales_admin?.username || '-' }}</td>
@@ -78,9 +78,14 @@
                 </span>
               </td>
               <td class="px-6 py-4 text-center">
-                <button @click="showDetail(t)" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Lihat Detail">
-                  👁️
-                </button>
+                <div class="flex items-center justify-center gap-1">
+                  <button @click="showDetail(t)" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Lihat Detail">
+                    👁️
+                  </button>
+                  <button @click="printInvoice(t)" class="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition" title="Cetak Invoice">
+                    🖨️
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -92,6 +97,36 @@
             </tr>
           </tfoot>
         </table>
+      </div>
+      <!-- Pagination Controls -->
+      <div v-if="totalPages > 1" class="px-6 py-4 bg-gray-50 border-t flex items-center justify-between">
+        <div class="text-xs text-gray-500">
+          Halaman <span class="font-bold">{{ currentPage }}</span> dari <span class="font-bold">{{ totalPages }}</span>
+        </div>
+        <div class="flex gap-1">
+          <button 
+            @click="currentPage--" 
+            :disabled="currentPage === 1"
+            class="px-3 py-1 bg-white border rounded text-xs font-bold disabled:opacity-50"
+          >
+            Prev
+          </button>
+          <button 
+            v-for="p in totalPages" :key="p"
+            @click="currentPage = p"
+            :class="currentPage === p ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600'"
+            class="w-8 h-8 border rounded text-xs font-bold transition flex items-center justify-center"
+          >
+            {{ p }}
+          </button>
+          <button 
+            @click="currentPage++" 
+            :disabled="currentPage === totalPages"
+            class="px-3 py-1 bg-white border rounded text-xs font-bold disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
       </div>
     </div>
 
@@ -141,7 +176,12 @@
              <p class="text-xs text-gray-500 uppercase font-bold">Total Akhir</p>
              <p class="text-xl font-black text-blue-700">Rp {{ parseFloat(selectedTransaction.total_amount).toLocaleString('id-ID') }}</p>
           </div>
-          <button @click="selectedTransaction = null" class="ml-6 px-6 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg font-bold text-gray-700 transition">Tutup</button>
+          <div class="ml-6 flex gap-2">
+            <button @click="printInvoice(selectedTransaction)" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-sm transition flex items-center gap-2">
+              <span>🖨️</span> Cetak
+            </button>
+            <button @click="selectedTransaction = null" class="px-6 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg font-bold text-gray-700 transition">Tutup</button>
+          </div>
         </div>
       </div>
     </div>
@@ -173,13 +213,20 @@
 import { ref, onMounted, computed } from 'vue'
 import axios from 'axios'
 import { useAuthStore } from '../../stores/auth'
+import { generateInvoicePDF } from '../../utils/pdfGenerator'
 
 const transactions = ref([])
 const loading = ref(true)
 const selectedTransaction = ref(null)
 const showProofModal = ref(false)
 const selectedProofUrl = ref('')
+const currentPage = ref(1)
+const itemsPerPage = ref(10)
 const filterStatus = ref('')
+
+const printInvoice = (transaction, shouldPrint = true) => {
+  generateInvoicePDF(transaction, shouldPrint)
+}
 
 const openProofModal = (url) => {
   selectedProofUrl.value = url
@@ -233,6 +280,14 @@ const filteredTransactions = computed(() => {
     
     return matchesMonth && matchesYear && matchesStatus && matchesPayment
   })
+})
+
+const totalPages = computed(() => Math.ceil(filteredTransactions.value.length / itemsPerPage.value))
+
+const paginatedTransactions = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  const end = start + itemsPerPage.value
+  return filteredTransactions.value.slice(start, end)
 })
 
 const totalAmountFiltered = computed(() => {

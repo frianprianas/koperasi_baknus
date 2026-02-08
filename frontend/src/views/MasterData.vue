@@ -43,7 +43,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">
-          <tr v-for="p in products" :key="p.id" class="hover:bg-gray-50 transition">
+          <tr v-for="p in paginatedProducts" :key="p.id" class="hover:bg-gray-50 transition">
             <td class="px-6 py-4 font-medium text-gray-900">{{ p.name }}</td>
             <td class="px-6 py-4 text-gray-500">{{ p.category || '-' }}</td>
             <td class="px-6 py-4 font-bold text-blue-600">Rp {{ parseFloat(p.price).toLocaleString('id-ID') }}</td>
@@ -54,6 +54,15 @@
           </tr>
         </tbody>
       </table>
+
+      <!-- Products Pagination -->
+      <div v-if="totalProductPages > 1" class="mt-6 flex items-center justify-between border-t pt-4">
+        <span class="text-xs text-gray-500 italic">Page {{ productPage }} of {{ totalProductPages }}</span>
+        <div class="flex gap-2">
+          <button @click="productPage--" :disabled="productPage === 1" class="px-3 py-1 border rounded text-xs disabled:opacity-50">Prev</button>
+          <button @click="productPage++" :disabled="productPage === totalProductPages" class="px-3 py-1 border rounded text-xs disabled:opacity-50">Next</button>
+        </div>
+      </div>
     </div>
 
     <!-- Customers Tab -->
@@ -73,7 +82,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">
-          <tr v-for="c in customers" :key="c.id" class="hover:bg-gray-50 transition">
+          <tr v-for="c in paginatedCustomers" :key="c.id" class="hover:bg-gray-50 transition">
             <td class="px-6 py-4 font-medium text-gray-900">{{ c.name }}</td>
             <td class="px-6 py-4 text-gray-500">{{ c.phone || '-' }}</td>
             <td class="px-6 py-4 italic">{{ c.type }}</td>
@@ -81,6 +90,15 @@
           </tr>
         </tbody>
       </table>
+
+      <!-- Customers Pagination -->
+      <div v-if="totalCustomerPages > 1" class="mt-6 flex items-center justify-between border-t pt-4">
+        <span class="text-xs text-gray-500 italic">Page {{ customerPage }} of {{ totalCustomerPages }}</span>
+        <div class="flex gap-2">
+          <button @click="customerPage--" :disabled="customerPage === 1" class="px-3 py-1 border rounded text-xs disabled:opacity-50">Prev</button>
+          <button @click="customerPage++" :disabled="customerPage === totalCustomerPages" class="px-3 py-1 border rounded text-xs disabled:opacity-50">Next</button>
+        </div>
+      </div>
     </div>
 
     <!-- Add Modal -->
@@ -138,7 +156,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import axios from 'axios'
 import { useAuthStore } from '../stores/auth'
 
@@ -148,6 +166,24 @@ const products = ref([])
 const customers = ref([])
 const showAddModal = ref(false)
 const selectedId = ref(null)
+
+// Pagination State
+const productPage = ref(1)
+const customerPage = ref(1)
+const itemsPerPage = ref(10)
+
+const totalProductPages = computed(() => Math.ceil(products.value.length / itemsPerPage.value))
+const paginatedProducts = computed(() => {
+  const start = (productPage.value - 1) * itemsPerPage.value
+  return products.value.slice(start, start + itemsPerPage.value)
+})
+
+const totalCustomerPages = computed(() => Math.ceil(customers.value.length / itemsPerPage.value))
+const paginatedCustomers = computed(() => {
+  const start = (customerPage.value - 1) * itemsPerPage.value
+  return customers.value.slice(start, start + itemsPerPage.value)
+})
+
 const form = ref({ name: '', price: 0, stock: 0, phone: '', type: 'umum', category: '', address: '' })
 
 const fetchData = async () => {
