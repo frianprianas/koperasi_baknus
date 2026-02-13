@@ -4,14 +4,14 @@
       <h2 class="text-2xl font-bold text-gray-800">Dashboard General Manager</h2>
       <div class="flex bg-white p-1 rounded-xl shadow-sm border border-gray-100">
         <button 
-          @click="filterIncome = 'today'" 
+          @click="setFilter('today')" 
           :class="filterIncome === 'today' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'"
           class="px-4 py-2 rounded-lg text-sm font-bold transition-all"
         >
           Hari Ini
         </button>
         <button 
-          @click="filterIncome = 'month'" 
+          @click="setFilter('month')" 
           :class="filterIncome === 'month' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'"
           class="px-4 py-2 rounded-lg text-sm font-bold transition-all"
         >
@@ -20,43 +20,57 @@
       </div>
     </div>
     
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <!-- Sales -->
       <div class="bg-blue-600 rounded-xl shadow-lg p-6 text-white flex items-center justify-between">
         <div>
-          <p class="text-blue-100 text-sm font-medium uppercase tracking-wider">Penjualan ({{ filterIncome === 'today' ? 'Hari Ini' : 'Bulan Ini' }})</p>
-          <h3 class="text-3xl font-bold mt-1">{{ filteredSalesCount }}</h3>
+          <p class="text-blue-100 text-[10px] font-bold uppercase tracking-wider">Total Penjualan</p>
+          <h3 class="text-2xl font-bold mt-1">Rp {{ (filterIncome === 'today' ? stats.sales.today : stats.sales.month).toLocaleString('id-ID') }}</h3>
         </div>
         <div class="p-3 bg-blue-500 rounded-lg">
-          <span class="text-2xl">📈</span>
+          <span class="text-xl">📈</span>
         </div>
       </div>
       
+      <!-- Purchase -->
       <div class="bg-indigo-600 rounded-xl shadow-lg p-6 text-white flex items-center justify-between">
         <div>
-          <p class="text-indigo-100 text-sm font-medium uppercase tracking-wider">Pendapatan ({{ filterIncome === 'today' ? 'Hari Ini' : 'Bulan Ini' }})</p>
-          <h3 class="text-3xl font-bold mt-1">Rp {{ filteredRevenue.toLocaleString('id-ID') }}</h3>
+          <p class="text-indigo-100 text-[10px] font-bold uppercase tracking-wider">Total Pembelian</p>
+          <h3 class="text-2xl font-bold mt-1">Rp {{ (filterIncome === 'today' ? stats.expense.purchase.today : stats.expense.purchase.month).toLocaleString('id-ID') }}</h3>
         </div>
         <div class="p-3 bg-indigo-500 rounded-lg">
-          <span class="text-2xl">💰</span>
+          <span class="text-xl">🛍️</span>
+        </div>
+      </div>
+
+       <!-- Transport -->
+      <div class="bg-teal-600 rounded-xl shadow-lg p-6 text-white flex items-center justify-between">
+        <div>
+          <p class="text-teal-100 text-[10px] font-bold uppercase tracking-wider">Biaya Angkutan</p>
+          <h3 class="text-2xl font-bold mt-1">Rp {{ (filterIncome === 'today' ? stats.expense.transport.today : stats.expense.transport.month).toLocaleString('id-ID') }}</h3>
+        </div>
+        <div class="p-3 bg-teal-500 rounded-lg">
+          <span class="text-xl">🚚</span>
         </div>
       </div>
       
+      <!-- Pending -->
       <div class="bg-yellow-500 rounded-xl shadow-lg p-6 text-white flex items-center justify-between">
         <div>
-          <p class="text-yellow-100 text-sm font-medium uppercase tracking-wider">Menunggu ACC</p>
-          <h3 class="text-3xl font-bold mt-1">{{ pendingCount }}</h3>
+          <p class="text-yellow-100 text-[10px] font-bold uppercase tracking-wider">Menunggu ACC</p>
+          <h3 class="text-2xl font-bold mt-1">{{ stats.pending.total }}</h3>
+          <p class="text-[10px] text-yellow-100 mt-1">Pembelian: {{ stats.pending.purchase }} | Transport: {{ stats.pending.transport }}</p>
         </div>
         <div class="p-3 bg-yellow-400 rounded-lg">
-          <span class="text-2xl">⏳</span>
+          <span class="text-xl">⏳</span>
         </div>
       </div>
     </div>
 
-    <!-- Recent Transactions -->
+    <!-- Recent Transactions Section -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       <div class="p-6 border-b border-gray-50 flex items-center justify-between">
         <h3 class="text-lg font-bold text-gray-800">Transaksi Terakhir</h3>
-        <button class="text-sm text-blue-600 hover:text-blue-700 font-medium">Lihat Semua</button>
       </div>
       
       <div class="overflow-x-auto">
@@ -73,7 +87,10 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="t in paginatedTransactions" :key="t.id" class="border-b last:border-0 hover:bg-gray-50 transition">
+            <tr v-if="transactions.length === 0" class="text-center">
+                <td colspan="7" class="py-8 text-gray-500">Belum ada transaksi terbaru.</td>
+            </tr>
+            <tr v-else v-for="t in paginatedTransactions" :key="t.id" class="border-b last:border-0 hover:bg-gray-50 transition">
               <td class="px-6 py-4 font-bold text-gray-900">{{ t.invoice_number }}</td>
               <td class="px-6 py-4 text-gray-600 text-xs">{{ new Date(t.createdAt).toLocaleDateString('id-ID', {day:'numeric', month:'short'}) }}</td>
               <td class="px-6 py-4 text-gray-600 truncate max-w-[150px]">{{ t.customer_name || '-' }}</td>
@@ -192,10 +209,24 @@ const showProofModal = ref(false)
 const selectedProofUrl = ref('')
 const authStore = useAuthStore()
 
+// Stats Data
+const stats = ref({
+    sales: { today: 0, month: 0 },
+    expense: {
+        purchase: { today: 0, month: 0 },
+        transport: { today: 0, month: 0 }
+    },
+    pending: { purchase: 0, transport: 0, total: 0 }
+})
+
 const printInvoice = (transaction, shouldPrint = true) => {
   generateInvoicePDF(transaction, shouldPrint)
 }
 const filterIncome = ref('today')
+
+const setFilter = (filter) => {
+    filterIncome.value = filter
+}
 
 // Table Pagination state
 const currentTablePage = ref(1)
@@ -207,6 +238,17 @@ const paginatedTransactions = computed(() => {
   const start = (currentTablePage.value - 1) * itemsPerPageTable.value
   return transactions.value.slice(start, start + itemsPerPageTable.value)
 })
+
+const fetchStats = async () => {
+    try {
+        const response = await axios.get('http://localhost:5000/api/reports/gm-stats', {
+            headers: { Authorization: `Bearer ${authStore.token}` }
+        })
+        stats.value = response.data
+    } catch (error) {
+        console.error('Error fetching stats:', error)
+    }
+}
 
 const fetchTransactions = async () => {
   try {
@@ -227,47 +269,6 @@ const openProofModal = (url) => {
   selectedProofUrl.value = url
   showProofModal.value = true
 }
-// Existing logic...
-const filteredSalesCount = computed(() => {
-  const now = new Date()
-  const today = now.toISOString().split('T')[0]
-  const currentMonth = now.getMonth()
-  const currentYear = now.getFullYear()
-
-  return transactions.value.filter(t => {
-    if (!t.createdAt) return false
-    const date = new Date(t.createdAt)
-    if (filterIncome.value === 'today') {
-      return t.createdAt.startsWith(today)
-    } else {
-      return date.getMonth() === currentMonth && date.getFullYear() === currentYear
-    }
-  }).length
-})
-
-const filteredRevenue = computed(() => {
-  const now = new Date()
-  const today = now.toISOString().split('T')[0]
-  const currentMonth = now.getMonth()
-  const currentYear = now.getFullYear()
-
-  return transactions.value
-    .filter(t => {
-      if (!t.createdAt) return false
-      const date = new Date(t.createdAt)
-      const isApproved = t.status === 'completed' || t.status === 'approved'
-      if (!isApproved) return false
-
-      if (filterIncome.value === 'today') {
-        return t.createdAt.startsWith(today)
-      } else {
-        return date.getMonth() === currentMonth && date.getFullYear() === currentYear
-      }
-    })
-    .reduce((sum, t) => sum + parseFloat(t.total_amount), 0)
-})
-
-const pendingCount = computed(() => transactions.value.filter(t => t.status === 'pending').length)
 
 const getStatusClass = (status) => {
   switch (status) {
@@ -289,5 +290,8 @@ const translateStatus = (status) => {
   }
 }
 
-onMounted(fetchTransactions)
+onMounted(() => {
+    fetchTransactions()
+    fetchStats()
+})
 </script>

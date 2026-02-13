@@ -1,0 +1,5 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="100" cy="100" r="95" stroke="#1c355e" stroke-width="10"/>
+  <path d="M100 40V160M40 100H160" stroke="#8fb339" stroke-width="10" stroke-linecap="round"/>
+  <text x="100" y="115" font-family="Arial" font-size="30" font-weight="bold" fill="#1c355e" text-anchor="middle">BAKNUS</text>
+</svg>

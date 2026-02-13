@@ -2,6 +2,9 @@
 
 @theme {
     --font-sans: "Inter", sans-serif;
+    --color-brand-navy: #1c355e;
+    --color-brand-green: #8fb339;
+    --color-brand-gray: #4a4a4a;
 }
 
 body {

@@ -86,15 +86,28 @@ const handleNotifClick = async (notif) => {
     }
   }
 
-  // Navigation logic based on notification type/related_id
-  if (notif.related_id) {
-    if (authStore.isAdminSales) {
+  // Navigation logic
+  if (notif.title.includes('Pembelian') || notif.message.includes('Purchase')) {
+      // Purchase Flow
+      if (authStore.isAdminPurchase) {
+          router.push('/purchase/history') // For inputter to see status
+      } else if (authStore.isAdminGM) {
+          router.push('/purchase/history') // For approval
+      } else if (authStore.isGM) {
+          router.push('/purchase/history') // For final approval
+      } else if (authStore.isFinance) {
+          router.push('/purchase/history') // For disbursement
+      }
+  } else {
+      // Sales Flow (Existing)
+      if (authStore.isAdminSales) {
         router.push('/sales/history')
-    } else if (authStore.isFinance) {
-        router.push('/finance/approvals')
-    } else if (authStore.isGM) {
+      } else if (authStore.isFinance) {
+        // Finance has two destinations, check context
+        router.push('/finance/approvals') 
+      } else if (authStore.isGM) {
         router.push('/gm')
-    }
+      }
   }
 }
 

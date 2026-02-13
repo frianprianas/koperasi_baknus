@@ -5,43 +5,49 @@ export const generateInvoicePDF = (transaction, shouldPrint = false) => {
     const doc = new jsPDF()
 
     // Header
-    // Logo placeholder text
+    // Add Logo
+    try {
+        doc.addImage('/logo_koperasi.png', 'PNG', 90, 8, 30, 30);
+    } catch (e) {
+        console.error("Logo not found for PDF", e);
+    }
+
     doc.setFontSize(22)
     doc.setTextColor(30, 64, 175) // Blue-800
     doc.setFont('helvetica', 'bold')
-    doc.text('KOPERASI BAKTI NUSANTARA', 105, 20, { align: 'center' })
+    doc.text('KOPERASI BAKTI NUSANTARA', 105, 45, { align: 'center' })
 
     doc.setFontSize(10)
     doc.setTextColor(100)
     doc.setFont('helvetica', 'normal')
-    doc.text('Jl. Bakti Nusantara No. 66, Bandung, Jawa Barat', 105, 27, { align: 'center' })
-    doc.text('Telp: (022) 1234567 | Email: info@baktinusantara.sch.id', 105, 32, { align: 'center' })
+    doc.text('Jl. Bakti Nusantara No. 66, Bandung, Jawa Barat', 105, 52, { align: 'center' })
+    doc.text('Telp: (022) 1234567 | Email: info@baktinusantara.sch.id', 105, 57, { align: 'center' })
 
     doc.setLineWidth(0.5)
     doc.setDrawColor(30, 64, 175)
-    doc.line(15, 38, 195, 38)
+    doc.line(15, 62, 195, 62)
 
     // Invoice Info
     doc.setFontSize(16)
     doc.setTextColor(0)
     doc.setFont('helvetica', 'bold')
-    doc.text('INVOICE / NOTA PENJUALAN', 15, 50)
+    doc.text('INVOICE / NOTA PENJUALAN', 15, 75)
 
     doc.setFontSize(10)
     doc.setFont('helvetica', 'normal')
-    doc.text(`Nomor Invoice : ${transaction.invoice_number}`, 15, 60)
-    doc.text(`Tanggal        : ${new Date(transaction.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, 15, 65)
-    doc.text(`Metode Bayar   : ${transaction.payment_type.toUpperCase()}`, 15, 70)
+    doc.text(`Nomor Invoice : ${transaction.invoice_number}`, 15, 85)
+    doc.text(`Tanggal        : ${new Date(transaction.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, 15, 90)
+    doc.text(`Metode Bayar   : ${transaction.payment_type.toUpperCase()}`, 15, 95)
 
-    doc.text('Penerima:', 140, 50)
+    doc.text('Penerima:', 140, 75)
     doc.setFont('helvetica', 'bold')
-    doc.text(`${transaction.customer_name || 'Umum'}`, 140, 55)
+    doc.text(`${transaction.customer_name || 'Umum'}`, 140, 80)
     doc.setFont('helvetica', 'normal')
-    doc.text('Status:', 140, 65)
+    doc.text('Status:', 140, 90)
 
     const statusColor = (transaction.status === 'approved' || transaction.status === 'completed') ? [22, 101, 52] : [185, 28, 28]
     doc.setTextColor(statusColor[0], statusColor[1], statusColor[2])
-    doc.text(`${transaction.status.toUpperCase()}`, 140, 70)
+    doc.text(`${transaction.status.toUpperCase()}`, 140, 95)
 
     // Items Table
     const tableRows = transaction.details.map((item, index) => [
@@ -53,9 +59,8 @@ export const generateInvoicePDF = (transaction, shouldPrint = false) => {
     ])
 
     doc.autoTable({
-        startY: 80,
-        head: [['No', 'Deskripsi Barang', 'Qty', 'Harga Satuan', 'Subtotal']],
-        body: tableRows,
+        startY: 105,
+        head: [['No', 'Deskripsi Barang', 'Qty', 'Harga Satuan', 'Subtotal']], body: tableRows,
         theme: 'striped',
         headStyles: { fillColor: [30, 64, 175] },
         columnStyles: {

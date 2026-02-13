@@ -19,41 +19,41 @@
     <div class="relative z-20 w-full max-w-md p-8 mx-4">
       <div class="bg-white/10 backdrop-blur-md border border-white/20 p-8 rounded-2xl shadow-2xl animate-fadeIn">
         <div class="text-center mb-8">
-          <div class="inline-block p-3 bg-blue-600 rounded-2xl mb-4 shadow-lg shadow-blue-500/30">
-            <span class="text-3xl text-white font-bold">KB</span>
+          <div class="inline-block p-1 bg-white rounded-3xl mb-4 shadow-xl">
+            <img src="/logo_koperasi.png" alt="Logo Koperasi" class="w-20 h-20 object-contain" />
           </div>
-          <h2 class="text-3xl font-extrabold text-white tracking-tight">Koperasi Baknus</h2>
-          <p class="text-blue-100/70 text-sm mt-2 font-medium uppercase tracking-widest">Sistem Terintegrasi</p>
+          <h2 class="text-3xl font-black text-white tracking-tight">Koperasi Baknus</h2>
+          <p class="text-brand-green text-xs mt-2 font-bold uppercase tracking-[0.2em] opacity-90 drop-shadow-sm">Sistem Terintegrasi v2.1</p>
         </div>
 
         <form @submit.prevent="handleLogin" class="space-y-5">
           <div>
-            <label class="block text-xs font-bold text-blue-100 uppercase mb-2 tracking-wider">Username</label>
+            <label class="block text-[10px] font-black text-white uppercase mb-2 tracking-widest opacity-70">Username</label>
             <div class="relative group">
-              <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-blue-300 pointer-events-none group-focus-within:text-blue-400 transition">
+              <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-white/40 group-focus-within:text-brand-green transition-all">
                 👤
               </span>
               <input 
                 v-model="username" 
                 type="text" 
-                placeholder="Masukkan username Anda"
-                class="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-blue-300/40 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white/10 transition-all" 
+                placeholder="Username Anda"
+                class="w-full pl-12 pr-4 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-brand-green/50 focus:bg-white/15 transition-all text-sm font-medium" 
                 required 
               />
             </div>
           </div>
 
           <div>
-            <label class="block text-xs font-bold text-blue-100 uppercase mb-2 tracking-wider">Password</label>
+            <label class="block text-[10px] font-black text-white uppercase mb-2 tracking-widest opacity-70">Password</label>
             <div class="relative group">
-              <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-blue-300 pointer-events-none group-focus-within:text-blue-400 transition">
+              <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-white/40 group-focus-within:text-brand-green transition-all">
                 🔒
               </span>
               <input 
                 v-model="password" 
                 type="password" 
                 placeholder="••••••••"
-                class="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-blue-300/40 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white/10 transition-all" 
+                class="w-full pl-12 pr-4 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-brand-green/50 focus:bg-white/15 transition-all text-sm font-medium" 
                 required 
               />
             </div>
@@ -61,9 +61,9 @@
 
           <button 
             type="submit" 
-            class="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-lg hover:shadow-blue-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 group"
+            class="w-full py-4 bg-gradient-to-r from-brand-navy to-brand-green text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-2xl shadow-black/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 group border border-white/10"
           >
-            <span>Masuk ke Akun</span>
+            <span>Masuk Sekarang</span>
             <span class="group-hover:translate-x-1 transition-transform">→</span>
           </button>
         </form>

@@ -1,4 +1,5 @@
 const { Transaction, TransactionItem, User, Notification, Product } = require('../models');
+const { Op } = require('sequelize');
 const { sendWANotification } = require('../utils/waNotification');
 const multer = require('multer');
 const path = require('path');
@@ -111,6 +112,61 @@ exports.getTransactions = async (req, res) => {
     }
 };
 
+exports.getSalesStats = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+        const stats = {
+            todaySales: await Transaction.sum('total_amount', {
+                where: {
+                    created_by_id: userId,
+                    status: { [Op.in]: ['approved', 'completed'] },
+                    createdAt: { [Op.gte]: today }
+                }
+            }) || 0,
+            monthSales: await Transaction.sum('total_amount', {
+                where: {
+                    created_by_id: userId,
+                    status: { [Op.in]: ['approved', 'completed'] },
+                    createdAt: { [Op.gte]: firstDayOfMonth }
+                }
+            }) || 0,
+            pendingCount: await Transaction.count({
+                where: { created_by_id: userId, status: 'pending' }
+            }),
+            rejectedCount: await Transaction.count({
+                where: { created_by_id: userId, status: 'rejected' }
+            })
+        };
+
+        res.json(stats);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+exports.getPiutang = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const piutang = await Transaction.findAll({
+            where: {
+                created_by_id: userId,
+                payment_type: 'piutang',
+                status: { [Op.not]: 'completed' }
+            },
+            include: [{ model: TransactionItem, as: 'details' }],
+            order: [['createdAt', 'DESC']]
+        });
+        res.json(piutang);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 exports.approveTransaction = async (req, res) => {
     const { id } = req.params;
     const { status, rejection_reason, approved_by } = req.body; // status: 'approved' or 'rejected'
@@ -119,22 +175,31 @@ exports.approveTransaction = async (req, res) => {
         const transaction = await Transaction.findByPk(id);
         if (!transaction) return res.status(404).json({ error: 'Transaction not found' });
 
-        transaction.status = status;
-        if (status === 'rejected') {
-            transaction.rejection_reason = rejection_reason;
-        }
         if (status === 'approved') {
             transaction.approved_at = new Date();
+            // Business Logic:
+            // 1. If Cash / Transfer -> Immediately 'completed' because money is received/proof exist
+            // 2. If Piutang but has proof -> 'completed' (Repayment)
+            // 3. If Piutang no proof -> 'approved' (Debt acknowledged)
+            if (transaction.payment_type === 'cash' || transaction.payment_type === 'transfer' || (transaction.payment_type === 'piutang' && transaction.proof_of_payment)) {
+                transaction.status = 'completed';
+            } else {
+                transaction.status = 'approved';
+            }
+        } else {
+            transaction.status = status; // e.g. 'rejected'
         }
-        transaction.approved_by_id = approved_by; // From request or token
+        transaction.approved_by_id = approved_by;
         await transaction.save();
+
+        const finalStatus = transaction.status;
 
         // Create notification for Sales Admin
         await Notification.create({
             user_id: transaction.created_by_id,
-            title: status === 'approved' ? 'Transaksi Disetujui' : 'Transaksi Ditolak',
+            title: status === 'approved' ? (finalStatus === 'completed' ? 'Pembayaran Selesai' : 'Hutang Disetujui') : 'Transaksi Ditolak',
             message: status === 'approved'
-                ? `Transaksi ${transaction.invoice_number} telah disetujui oleh Finance.`
+                ? `Transaksi ${transaction.invoice_number} ${finalStatus === 'completed' ? 'telah lunas/selesai.' : 'telah disetujui sebagai piutang.'}`
                 : `Transaksi ${transaction.invoice_number} ditolak. Alasan: ${rejection_reason}`,
             type: status === 'approved' ? 'success' : 'danger',
             related_id: transaction.id
@@ -147,12 +212,11 @@ exports.approveTransaction = async (req, res) => {
             const gmUser = await User.findOne({ where: { role: 'gm' } });
             if (gmUser && gmUser.whatsapp) {
                 const waMessage = `Kepada : General Manager\n\n` +
-                    `*TRANSAKSI TELAH DISETUJUI*\n\n` +
+                    `*TRANSAKSI ${finalStatus === 'completed' ? 'SELESAI' : 'DISETUJUI'}*\n\n` +
                     `No. Invoice: ${transaction.invoice_number}\n` +
                     `Pelanggan: ${transaction.customer_name}\n` +
                     `Total: Rp ${parseFloat(transaction.total_amount).toLocaleString('id-ID')}\n` +
-                    `Status: DISETUJUI (Finance)\n\n` +
-                    `Laporan penjualan telah diverifikasi.\n\n` +
+                    `Status: ${finalStatus === 'completed' ? 'LUNAS/SELESAI' : 'PIUTANG (DISETUJUI)'}\n\n` +
                     `_Notifikasi otomatis dari Aplikasi Koprasi Baknus_`;
                 await sendWANotification(gmUser.whatsapp, waMessage);
             }
@@ -278,6 +342,53 @@ exports.updateTransaction = async (req, res) => {
         }
 
         res.json(transaction);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+exports.payPiutang = async (req, res) => {
+    const { id } = req.params;
+    const proof_of_payment = req.file ? req.file.path.replace(/\\/g, '/') : null;
+
+    if (!proof_of_payment) return res.status(400).json({ error: 'Bukti pembayaran wajib dilampirkan.' });
+
+    try {
+        const transaction = await Transaction.findByPk(id);
+        if (!transaction) return res.status(404).json({ error: 'Transaction not found' });
+
+        if (transaction.payment_type !== 'piutang') {
+            return res.status(400).json({ error: 'Hanya transaksi piutang yang dapat melakukan pelunasan lewat menu ini.' });
+        }
+
+        transaction.proof_of_payment = proof_of_payment;
+        transaction.status = 'pending'; // Back to pending for finance to verify payment
+        transaction.rejection_reason = null;
+        await transaction.save();
+
+        // Notify Finance
+        await Notification.create({
+            role: 'keuangan',
+            title: 'Pelunasan Piutang',
+            message: `Ada pelunasan piutang untuk ${transaction.invoice_number} sebesar Rp ${parseFloat(transaction.total_amount).toLocaleString('id-ID')}. Perlu verifikasi.`,
+            type: 'warning',
+            related_id: transaction.id
+        });
+
+        // WhatsApp to Finance
+        const financeUser = await User.findOne({ where: { role: 'keuangan' } });
+        if (financeUser && financeUser.whatsapp) {
+            const waMessage = `Kepada : Bagian Keuangan\n\n` +
+                `*PELUNASAN PIUTANG PERLU VERIFIKASI*\n\n` +
+                `No. Invoice: ${transaction.invoice_number}\n` +
+                `Pelanggan: ${transaction.customer_name}\n` +
+                `Total: Rp ${parseFloat(transaction.total_amount).toLocaleString('id-ID')}\n\n` +
+                `Admin Sales telah mengunggah bukti pelunasan. Mohon segera diperiksa.\n\n` +
+                `_Notifikasi otomatis dari Aplikasi Koprasi Baknus_`;
+            await sendWANotification(financeUser.whatsapp, waMessage);
+        }
+
+        res.json({ message: 'Bukti pelunasan berhasil diunggah. Menunggu verifikasi keuangan.', transaction });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

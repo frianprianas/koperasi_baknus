@@ -11,6 +11,9 @@ import GMOverview from '../views/gm/Overview.vue'
 import Notifications from '../views/Notifications.vue'
 import MasterData from '../views/MasterData.vue'
 import AccountManagement from '../views/AccountManagement.vue'
+import PurchaseInput from '../views/purchase/Input.vue'
+import PurchaseHistory from '../views/purchase/History.vue'
+import CashFlow from '../views/finance/CashFlow.vue'
 
 const routes = [
     {
@@ -34,14 +37,24 @@ const routes = [
             { path: 'sales/input', name: 'SalesInput', component: SalesInput, meta: { role: 'admin_penjualan' } },
             { path: 'sales/edit/:id', name: 'SalesEdit', component: SalesInput, meta: { role: 'admin_penjualan' } },
             { path: 'sales/history', name: 'SalesHistory', component: SalesHistory, meta: { role: 'admin_penjualan' } },
+            { path: 'sales/piutang', name: 'SalesPiutang', component: () => import('../views/sales/Piutang.vue'), meta: { role: 'admin_penjualan' } },
 
             // Finance Routes
             { path: 'finance', redirect: '/finance/approvals' },
             { path: 'finance/approvals', name: 'FinanceApprovals', component: FinanceApprovals, meta: { role: 'keuangan' } },
             { path: 'finance/history', name: 'FinanceHistory', component: FinanceHistory, meta: { role: 'keuangan' } },
+            { path: 'finance/cash-flow', name: 'CashFlow', component: CashFlow, meta: { role: ['keuangan', 'gm', 'master_admin'] } },
 
             // GM Routes
-            { path: 'gm', name: 'GMOverview', component: GMOverview, meta: { role: 'gm' } }
+            { path: 'gm', name: 'GMOverview', component: GMOverview, meta: { role: ['gm', 'master_admin', 'admin_gm'] } },
+
+            // Purchase Routes
+            { path: 'purchase', redirect: '/purchase/history' },
+            { path: 'purchase/input', name: 'PurchaseInput', component: PurchaseInput, meta: { role: 'admin_pembelian' } },
+            { path: 'purchase/history', name: 'PurchaseHistory', component: PurchaseHistory, meta: { role: ['admin_pembelian', 'admin_gm', 'gm', 'keuangan', 'master_admin'] } },
+
+            // Transport Routes
+            { path: 'transport', name: 'Transport', component: () => import('../views/transport/Transport.vue'), meta: { role: ['admin_pembelian', 'admin_gm', 'gm', 'keuangan', 'master_admin'] } }
         ]
     },
     // Catch all 404
@@ -75,6 +88,8 @@ router.beforeEach((to, from, next) => {
             if (authStore.isFinance) return next('/finance/approvals');
             if (authStore.isGM) return next('/gm');
             if (authStore.isMaster) return next('/accounts');
+            if (authStore.isAdminPurchase) return next('/purchase/input');
+            if (authStore.isAdminGM) return next('/purchase/history');
             return next('/dashboard');
         }
     }

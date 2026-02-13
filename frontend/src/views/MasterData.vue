@@ -1,16 +1,16 @@
 <template>
   <div class="space-y-6">
-    <div class="bg-white p-4 rounded-xl shadow-sm border border-blue-50 mb-6">
+    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 font-sans">
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 class="text-2xl font-bold text-blue-900">Master Data</h2>
-          <p class="text-sm text-gray-500">Kelola informasi barang dan data konsumen tetap</p>
+          <h2 class="text-2xl font-black text-brand-navy tracking-tight">Master Data</h2>
+          <p class="text-xs text-gray-400 font-bold uppercase tracking-wider">Kelola aset barang & data anggota</p>
         </div>
-        <div class="flex bg-gray-100 p-1 rounded-xl w-fit">
+        <div class="flex bg-gray-50 p-1 rounded-2xl w-fit border border-gray-100">
           <button 
             @click="activeTab = 'products'" 
-            :class="activeTab === 'products' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'" 
-            class="px-6 py-2.5 rounded-lg font-bold transition-all flex items-center gap-2"
+            :class="activeTab === 'products' ? 'bg-white text-brand-green shadow-md shadow-gray-200/50' : 'text-gray-400 hover:text-gray-600'" 
+            class="px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center gap-2"
           >
             <span>📦</span> Master Barang
           </button>
